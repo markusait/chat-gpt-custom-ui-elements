@@ -1,14 +1,34 @@
+import os
+import json
+from django.conf import settings
 from openai import OpenAI
 
-client = OpenAI(
-    # api_key=os.environ.get("OPENAI_API_KEY"),
-    api_key="sk-proj-82c3eXB5ZqEvMOpOxoI0T3BlbkFJ0miE9F5iGMlxMDdlXeMm"
-)
 
+client = OpenAI(
+    api_key=settings.OPENAI_API_KEY,
+)
+def format_response(chat_response):
+    try:
+        # Try to parse the response as JSON
+        formatted_response = json.loads(chat_response.choices[0].message.content)
+    except json.JSONDecodeError:
+        # If the response can't be parsed as JSON, return it as a plain text message
+        formatted_response = {
+            "type": "text",
+            "content": chat_response.choices[0].message.content
+        }
+    return formatted_response
 
 def chat_completion(message):
     chat_response = client.chat.completions.create(
       model="gpt-4",
+      temperature=0.1,  
+                # TODO allow multiple choice
+                # {
+                #     "type": "element-multi-select",
+                #     "content": "Is your runny nose constant or come-and-go?", 
+                #     "content": ["constant", "come-and-go"]
+                # }
       messages=[
             {"role": "system", "content": """
                 You are a virtual doctor tasked with diagnosing diseases based on patient inputs.
@@ -24,18 +44,13 @@ def chat_completion(message):
                     }
                 For custom elements:
                 {
-                    "type": "element-multi-select",
-                    "content": "Is your runny nose constant or come-and-go?", 
-                    "content": ["constant", "come-and-go"]
-                }
-                {
                     "type": "element-select",
                     "content": "How would you describe your current cold symptoms?", 
                     "options": ["getting better", "staying the same", "getting worse"]
                 }
-            
+                Only ever return one json element at a time.
              """},
             {"role": "user", "content": message}
-        ]
+         ]
     )
-    return chat_response.choices[0].message.content
+    return format_response(chat_response) 
